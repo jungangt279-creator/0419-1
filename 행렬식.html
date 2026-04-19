@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>행렬식 방어전: 주관식 에디션 v4.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        :root {
+            --bg-dark: #05080e;
+            --panel-bg: rgba(10, 20, 35, 0.9);
+            --primary-neon: #00f2fe;
+            --secondary-neon: #4facfe;
+            --accent-glow: rgba(0, 242, 254, 0.6);
+            --text-main: #b0c4de;
+            --text-matrix: #fff;
+            --wrong-red: #ff4757;
+            --correct-green: #2ed573;
+            --combo-gold: #ffd700;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(var(--primary-neon) 1px, transparent 2px),
+                radial-gradient(var(--secondary-neon) 1px, transparent 1px);
+            background-size: 80px 80px, 40px 40px;
+            color: var(--text-main);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; overflow: hidden;
+            transition: background 0.2s ease;
+        }
+
+        /* SF Style Game Wrapper */
+        .game-wrapper {
+            background: var(--panel-bg);
+            border: 3px solid var(--primary-neon);
+            border-radius: 25px;
+            box-shadow: 0 0 50px var(--accent-glow);
+            padding: 30px;
+            width: 95%; max-width: 850px;
+            position: relative;
+            backdrop-filter: blur(15px);
+            transition: all 0.1s ease;
+        }
+
+        /* Header Stats */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid rgba(0, 242, 254, 0.3);
+            padding-bottom: 15px; margin-bottom: 25px;
+        }
+        .difficulty-indicator { font-size: 1rem; color: #fff; text-shadow: 0 0 5px var(--primary-neon); font-weight: 700; }
+        .stat-box { text-align: center; min-width: 90px; }
+        .stat-label { font-size: 0.9rem; color: var(--secondary-neon); font-weight: 700; letter-spacing: 1px; }
+        .stat-value { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--primary-neon); }
+        #timer.warning { color: var(--wrong-red); animation: pulse 0.5s infinite; }
+
+        /* Matrix Display Area */
+        .matrix-stage {
+            display: flex; justify-content: center; align-items: center;
+            gap: 30px; margin-bottom: 30px;
+        }
+        .matrix-container {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 25px;
+            position: relative;
+        }
+        .matrix-container::before, .matrix-container::after {
+            content: ''; position: absolute; top: 0; width: 12px; height: 100%;
+            border-top: 3px solid #fff; border-bottom: 3px solid #fff;
+        }
+        .matrix-container::before { left: 0; border-left: 3px solid #fff; border-radius: 6px 0 0 6px; }
+        .matrix-container::after { right: 0; border-right: 3px solid #fff; border-radius: 0 6px 6px 0; }
+
+        .matrix-grid {
+            display: grid; gap: 20px;
+            font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 700;
+            color: var(--text-matrix); text-align: center; align-items: center;
+        }
+        .matrix-item { min-width: 50px; }
+        
+        .changed { animation: popIn 0.5s ease-out; color: var(--combo-gold); text-shadow: 0 0 8px var(--combo-gold); }
+
+        .det-label { font-size: 1.3rem; font-weight: 700; color: var(--secondary-neon); margin-bottom: 10px; }
+        .arrow { font-size: 3.5rem; color: var(--primary-neon); text-shadow: 0 0 15px var(--primary-neon); animation: moveArrow 1s infinite; }
+
+        /* Operation Description */
+        .op-desc {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px; padding: 20px; margin-bottom: 30px;
+            text-align: center; font-size: 1.25rem; font-weight: 700; color: #fff;
+            border-left: 5px solid var(--secondary-neon);
+            display: none;
+        }
+
+        /* Guess Zone */
+        .guess-zone { text-align: center; }
+        .guess-title { font-size: 1.4rem; margin-bottom: 20px; color: var(--text-main); font-weight: 700; }
+        
+        .input-group {
+            display: flex; justify-content: center; align-items: center; gap: 15px;
+        }
+
+        .opt-input {
+            font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--primary-neon);
+            color: #fff;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 1.8rem;
+            font-weight: 900;
+            text-align: center;
+            width: 150px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 10px rgba(0, 242, 254, 0.1);
+        }
+        .opt-input:focus {
+            box-shadow: 0 0 20px var(--accent-glow), inset 0 0 15px rgba(0, 242, 254, 0.3);
+            border-color: #fff;
+        }
+        .opt-input::-webkit-outer-spin-button, .opt-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .opt-input[type=number] { -moz-appearance: textfield; }
+
+        .submit-btn {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: rgba(0, 242, 254, 0.1);
+            border: 2px solid var(--primary-neon);
+            color: var(--primary-neon);
+            padding: 15px 30px; border-radius: 12px;
+            font-size: 1.4rem; font-weight: 700;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .submit-btn:hover { background: var(--primary-neon); color: var(--bg-dark); box-shadow: 0 0 30px var(--accent-glow); }
+        .submit-btn:active { transform: scale(0.95); }
+
+        /* Overlays */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 14, 0.95); backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-radius: 25px; z-index: 100;
+        }
+        .overlay h1 { font-family: 'Noto Sans KR', sans-serif; font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, #00f2fe, #fff, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 15px 0; text-align: center; }
+        .overlay p { font-size: 1.2rem; margin: 0 0 40px 0; text-align: center; max-width: 80%; line-height: 1.5; }
+        
+        /* Explanation Box */
+        .explanation-box {
+            background: var(--panel-bg);
+            border: 2px solid var(--secondary-neon);
+            border-radius: 15px;
+            padding: 35px;
+            text-align: center;
+            max-width: 650px;
+            width: 90%;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        .diff-menu { display: flex; gap: 20px; }
+        .difficulty-btn {
+            font-family: 'Noto Sans KR', sans-serif; background: none; 
+            border: 3px solid #fff; color: #fff; padding: 15px 35px; border-radius: 60px; 
+            font-size: 1.4rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease;
+            border-color: var(--secondary-neon); color: var(--secondary-neon);
+        }
+        .difficulty-btn:hover { background: var(--secondary-neon); color: var(--bg-dark); box-shadow: 0 0 20px var(--secondary-neon); }
+        .difficulty-btn.advanced { border-color: var(--wrong-red); color: var(--wrong-red); }
+        .difficulty-btn.advanced:hover { background: var(--wrong-red); color: var(--bg-dark); box-shadow: 0 0 20px var(--wrong-red); }
+
+        /* Feedback/Combat Effects */
+        .feedback-hit { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 200; }
+        .feedback-correct { background: radial-gradient(circle, rgba(46, 213, 115, 0.4) 0%, rgba(46, 213, 115, 0) 70%); }
+        .feedback-wrong { background: radial-gradient(circle, rgba(255, 71, 87, 0.4) 0%, rgba(255, 71, 87, 0) 70%); }
+        .hit { opacity: 1; }
+
+        /* Animations */
+        @keyframes pulse { 50% { opacity: 0.3; } }
+        @keyframes moveArrow { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(15px); } }
+        @keyframes correct { 0% { box-shadow: 0 0 0 var(--panel-bg); } 50% { box-shadow: 0 0 40px var(--correct-green); } 100% { box-shadow: 0 0 0 var(--panel-bg); } }
+        @keyframes wrong { 0% { transform: translateX(0); } 10% { transform: translateX(-15px); } 30% { transform: translateX(15px); } 50% { transform: translateX(-15px); } 70% { transform: translateX(15px); } 100% { transform: translateX(0); } }
+        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes comboGlow { 0% { box-shadow: 0 0 10px var(--combo-gold); } 50% { box-shadow: 0 0 30px var(--combo-gold); } 100% { box-shadow: 0 0 10px var(--combo-gold); } }
+
+        .correct-anim { animation: correct 0.6s ease-out; }
+        .wrong-anim { animation: wrong 0.5s linear; }
+        .combo-anim { animation: comboGlow 1s infinite; }
+
+        /* Floating Text Particle */
+        .floating-text {
+            position: absolute; font-family: 'Noto Sans KR', sans-serif; font-weight: 900; font-size: 2rem; pointer-events: none; opacity: 1;
+            transform: translateY(0); transition: transform 1.2s ease-out, opacity 1s ease-out; z-index: 300;
+        }
+
+        #fxCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="fxCorrect" class="feedback-hit feedback-correct"></div>
+<div id="fxWrong" class="feedback-hit feedback-wrong"></div>
+<canvas id="fxCanvas"></canvas>
+
+<div class="game-wrapper" id="gameWindow">
+    <header class="header">
+        <div class="stat-box">
+            <div id="diffIndicator" class="difficulty-indicator"></div>
+            <div class="stat-label">남은 시간</div>
+            <div id="timer" class="stat-value">25</div>
+        </div>
+        <div class="stat-box" id="comboContainer">
+            <div class="stat-label">연속 정답</div>
+            <div id="combo" class="stat-value" style="color: var(--secondary-neon);">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">점수</div>
+            <div id="score" class="stat-value">0</div>
+        </div>
+    </header>
+
+    <div class="matrix-stage">
+        <div style="text-align:center;">
+            <div class="det-label">행렬식(A)</div>
+            <div class="matrix-container">
+                <div id="matrixA" class="matrix-grid"></div>
+            </div>
+            <div id="detAVal" class="changed" style="font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-top:10px; font-weight:900;">0</div>
+        </div>
+        
+        <div class="arrow">👉</div>
+
+        <div style="text-align:center;">
+            <div class="det-label">행렬식(B)</div>
+            <div class="matrix-container">
+                <div id="matrixB" class="matrix-grid"></div>
+            </div>
+            <div id="detBVal" class="changed" style="font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-top:10px; font-weight:900; color:#fff;">?</div>
+        </div>
+    </div>
+
+    <div class="op-desc" id="opDescription"></div>
+
+    <div class="guess-zone">
+        <div class="guess-title">최종 행렬식(B)의 값을 계산하여 입력하세요.</div>
+        <div class="input-group">
+            <input type="number" id="answerInput" class="opt-input" placeholder="정답" autocomplete="off">
+            <button class="submit-btn" onclick="submitAnswer()">입력</button>
+        </div>
+    </div>
+
+    <div id="startOverlay" class="overlay" style="display: flex;">
+        <h1>행렬식 방어전<br><span style="font-size: 2rem; color: #ffd700;">주관식 에디션</span></h1>
+        <p>초기 <strong>행렬식(A)</strong>가 무작위 숫자로 주어집니다.<br>행 연산이 적용된 <strong>행렬식(B)</strong>의 정확한 수치를 계산하여 방어하세요!</p>
+        <div class="diff-menu">
+            <button class="difficulty-btn" onclick="startGame('basic')">초급</button>
+            <button class="difficulty-btn" onclick="startGame('mid')">중급</button>
+            <button class="difficulty-btn advanced" onclick="startGame('advanced')">고급</button>
+        </div>
+    </div>
+
+    <div id="endOverlay" class="overlay" style="display: none;">
+        <h1 style="color: var(--combo-gold); text-shadow: 0 0 15px var(--combo-gold);">방어 완료!</h1>
+        <p>최종 점수: <strong id="finalScore" style="font-family: 'Orbitron', sans-serif; color:#fff; font-size:3rem; text-shadow:0 0 10px #fff;">0</strong></p>
+        <button class="difficulty-btn" onclick="initGameScreen()">난이도 재설정</button>
+    </div>
+
+    <div id="explanationOverlay" class="overlay" style="display: none; z-index: 150;">
+        <div class="explanation-box">
+            <h2 id="expTitle" style="font-size: 2.5rem; margin-top: 0;">결과</h2>
+            <div id="expBody" style="font-size: 1.15rem; line-height: 1.6; margin-bottom: 30px; color: #fff;"></div>
+            <button class="submit-btn" onclick="closeExplanationAndNext()" id="nextBtn" style="width: 100%;">다음 문제 (Enter)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Config & State ---
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const total_problems = 10;
+
+    let gameState = {
+        difficulty: 'basic',
+        timePerProblem: 25,
+        score: 0, combo: 0, timeLeft: 0,
+        currentProblem: null, problemCount: 0,
+        timerInterval: null
+    };
+
+    const DIFFICULTY_SETTINGS = {
+        'basic': { time: 25, size: 2, complex: false, label: "초급" },
+        'mid': { time: 20, size: 3, complex: false, label: "중급" },
+        'advanced': { time: 20, size: 3, complex: true, label: "고급 (복합 연산)" }
+    };
+
+    // --- Combat FX ---
+    const fxCanvas = document.getElementById('fxCanvas');
+    const fxCtx = fxCanvas.getContext('2d');
+    fxCanvas.width = window.innerWidth; fxCanvas.height = window.innerHeight;
+    
+    let particles = [];
+    const createExplosion = (x, y, color) => {
+        const amount = gameState.difficulty === 'advanced' ? 100 : 60;
+        for(let i=0; i<amount; i++) {
+            particles.push({
+                x, y,
+                vx: (Math.random() - 0.5) * 15, vy: (Math.random() - 0.5) * 15,
+                alpha: 1, color, size: Math.random()*4 + 2, decay: Math.random()*0.02 + 0.02
+            });
+        }
+    }
+    const createShockwave = (x, y, color) => {
+        particles.push({ x, y, shockwave: true, alpha: 0.8, color, size: 20, decay: 0.05 });
+    }
+    
+    const animateFX = () => {
+        fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+        for(let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            if(p.shockwave) {
+                p.alpha -= p.decay; p.size += 8;
+                fxCtx.strokeStyle = p.color; fxCtx.lineWidth = p.alpha * 5; fxCtx.globalAlpha = p.alpha;
+                fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); fxCtx.stroke();
+            } else {
+                p.alpha -= p.decay; p.x += p.vx; p.y += p.vy; p.size *= 0.98;
+                fxCtx.fillStyle = p.color; fxCtx.globalAlpha = p.alpha;
+                fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); fxCtx.fill();
+            }
+            if(p.alpha <= 0) particles.splice(i, 1);
+        }
+        fxCtx.globalAlpha = 1;
+        requestAnimationFrame(animateFX);
+    }
+    animateFX();
+
+    // --- Audio ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playSound = (freq, type, duration, gainValue = 0.3) => {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // --- Problem Generator ---
+    function generateMatrixProblem() {
+        const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
+        const size = settings.size;
+        
+        let matA, usedSet;
+        do {
+            matA = Array.from({length: size}, () => Array.from({length: size}, () => chars[Math.floor(Math.random() * chars.length)]));
+            usedSet = new Set(matA.flat());
+        } while (usedSet.size < size * size);
+
+        let matB = matA.map(row => [...row]);
+        let ops = [];
+        let expSteps = []; // 원리 해설 텍스트 배열
+        let finalDetFactor = 1; 
+
+        const maxOps = settings.complex ? 2 : 1;
+        let scalarK = null;
+        
+        for(let opIdx=0; opIdx < maxOps; opIdx++) {
+            const opType = Math.floor(Math.random() * 3); 
+            let r1 = 0, r2 = 1;
+            if (size === 3) {
+                const indices = [0, 1, 2].sort(()=>Math.random()-0.5);
+                r1 = indices[0]; r2 = indices[1];
+            }
+
+            switch(opType) {
+                case 0: 
+                    [matB[r1], matB[r2]] = [matB[r2], matB[r1]];
+                    ops.push(`${r1+1}행(<span style='color:var(--primary-neon)'>R${r1+1}</span>) ↔ ${r2+1}행(<span style='color:var(--primary-neon)'>R${r2+1}</span>)`);
+                    expSteps.push(`➔ <span style='color:var(--primary-neon)'>${r1+1}행</span>과 <span style='color:var(--primary-neon)'>${r2+1}행</span> 교환<br>&nbsp;&nbsp;&nbsp;&nbsp;: 행렬식 <strong>부호 반전 (× -1)</strong>`);
+                    finalDetFactor *= -1;
+                    break;
+                case 1: 
+                    if (scalarK !== null && maxOps > 1) break; 
+                    scalarK = Math.floor(Math.random() * 5) + 2; 
+                    matB[r1] = matA[r1].map(c => `<span class='changed'>${scalarK}</span>${c}`);
+                    ops.push(`${r1+1}행(<span style='color:var(--primary-neon)'>R${r1+1}</span>) &times; <span class='changed'>${scalarK}</span>`);
+                    expSteps.push(`➔ <span style='color:var(--primary-neon)'>${r1+1}행</span>에 <span style='color:var(--combo-gold)'>${scalarK}</span>배 실수배<br>&nbsp;&nbsp;&nbsp;&nbsp;: 행렬식 <strong>${scalarK}배 (× ${scalarK})</strong>`);
+                    finalDetFactor *= scalarK;
+                    break;
+                case 2: 
+                    matB[r1] = matA[r1].map((cA, col) => `${cA} + <span class='changed'>R${r2+1}</span>(${matA[r2][col]})`);
+                    ops.push(`${r1+1}행(<span style='color:var(--primary-neon)'>R${r1+1}</span>)에 ${r2+1}행(<span style='color:var(--primary-neon)'>R${r2+1}</span>)을 더했습니다.`);
+                    expSteps.push(`➔ <span style='color:var(--primary-neon)'>${r1+1}행</span>에 <span style='color:var(--primary-neon)'>${r2+1}행</span> 덧셈<br>&nbsp;&nbsp;&nbsp;&nbsp;: 행렬식 <strong>변화 없음 (× 1)</strong>`);
+                    finalDetFactor *= 1; 
+                    break;
+            }
+        }
+
+        let initialDetA = Math.floor(Math.random() * 9) + 1;
+        if (Math.random() > 0.5) initialDetA *= -1;
+        let correctAnswer = initialDetA * finalDetFactor;
+
+        // 원리 설명용 HTML 완성
+        let explanationHTML = `<div style="margin-bottom: 15px; font-size: 1.3rem;">초기 행렬식 <span style="color:var(--secondary-neon); font-weight:bold;">det(A) = ${initialDetA}</span></div>`;
+        explanationHTML += `<div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: left; display: inline-block;">`;
+        explanationHTML += expSteps.join('<br><br>');
+        explanationHTML += `</div>`;
+        explanationHTML += `<div style="font-size: 1.6rem; color: var(--combo-gold);">최종 행렬식 <strong>det(B) = ${correctAnswer}</strong></div>`;
+
+        return { 
+            matA, matB, size, 
+            opDesc: ops.join('<br>'), 
+            explanationHTML, 
+            initialDetA, correctAnswer 
+        };
+    }
+
+    // --- Game Logic ---
+    function renderMatrix(matrix, containerId, size) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        container.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+        matrix.flat().forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'matrix-item';
+            div.innerHTML = item;
+            container.appendChild(div);
+        });
+    }
+
+    function updateStatsUI() {
+        document.getElementById('score').innerText = gameState.score.toLocaleString();
+        document.getElementById('combo').innerText = gameState.combo;
+        const timerEl = document.getElementById('timer');
+        timerEl.innerText = gameState.timeLeft;
+        if(gameState.timeLeft <= 5) timerEl.classList.add('warning');
+        else timerEl.classList.remove('warning');
+
+        const comboContainer = document.getElementById('comboContainer');
+        if(gameState.combo >= 3) comboContainer.classList.add('combo-anim');
+        else comboContainer.classList.remove('combo-anim');
+    }
+
+    function initGameScreen() {
+        if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+        document.getElementById('endOverlay').style.display = 'none';
+        document.getElementById('startOverlay').style.display = 'flex';
+        document.getElementById('explanationOverlay').style.display = 'none';
+        document.getElementById('answerInput').value = '';
+    }
+
+    function startGame(difficulty) {
+        if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        gameState.difficulty = difficulty;
+        gameState.timePerProblem = DIFFICULTY_SETTINGS[difficulty].time;
+        
+        document.getElementById('diffIndicator').innerText = DIFFICULTY_SETTINGS[difficulty].label;
+        document.getElementById('startOverlay').style.display = 'none';
+        
+        gameState.score = 0; gameState.combo = 0; gameState.problemCount = 0;
+        updateStatsUI();
+        nextProblem();
+    }
+
+    function nextProblem() {
+        gameState.problemCount++;
+        if(gameState.problemCount > total_problems) { endGame(); return; }
+
+        gameState.currentProblem = generateMatrixProblem();
+        
+        renderMatrix(gameState.currentProblem.matA, 'matrixA', gameState.currentProblem.size);
+        renderMatrix(gameState.currentProblem.matB, 'matrixB', gameState.currentProblem.size);
+        
+        const descElement = document.getElementById('opDescription');
+        if (gameState.difficulty === 'basic') {
+            descElement.style.display = 'block';
+            descElement.innerHTML = gameState.currentProblem.opDesc;
+        } else {
+            descElement.style.display = 'none';
+        }
+        
+        document.getElementById('detAVal').innerText = gameState.currentProblem.initialDetA;
+        document.getElementById('detBVal').innerText = '?';
+        document.getElementById('detBVal').style.color = '#fff';
+
+        const inputEl = document.getElementById('answerInput');
+        inputEl.value = '';
+        inputEl.disabled = false;
+        inputEl.focus();
+
+        gameState.timeLeft = gameState.timePerProblem;
+        updateStatsUI();
+        
+        if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+        gameState.timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+        gameState.timeLeft--;
+        updateStatsUI();
+        if(gameState.timeLeft <= 0) {
+            clearInterval(gameState.timerInterval);
+            playSound(120, 'sawtooth', 0.4, 0.5);
+            flashWrongScreenFX();
+            gameState.combo = 0;
+            applyDetBFeedback(); 
+            document.getElementById('answerInput').disabled = true;
+            
+            // 0.8초 후 오답 해설창(시간 초과) 노출
+            setTimeout(() => showExplanation(false, true), 800);
+        }
+    }
+
+    function submitAnswer() {
+        const inputEl = document.getElementById('answerInput');
+        if (inputEl.disabled || inputEl.value === '') return;
+
+        const userVal = parseInt(inputEl.value, 10);
+        if (isNaN(userVal)) return;
+
+        clearInterval(gameState.timerInterval);
+        inputEl.disabled = true; 
+
+        const isCorrect = (userVal === gameState.currentProblem.correctAnswer);
+        
+        if(isCorrect) handleCorrectAnswer();
+        else handleWrongAnswer();
+        
+        applyDetBFeedback();
+        updateStatsUI();
+        
+        // 이펙트 후 설명창 표시 (0.8초 딜레이)
+        setTimeout(() => showExplanation(isCorrect, false, userVal), 800);
+    }
+
+    function handleCorrectAnswer() {
+        playSound(1000, 'sine', 0.2, 0.4); 
+        gameState.combo++;
+        
+        const difficultyBonus = gameState.difficulty === 'basic' ? 5 : 10;
+        const earned = 100 + (gameState.timeLeft * difficultyBonus) + (gameState.combo * 50);
+        gameState.score += earned;
+        
+        showFloatingText(`+${earned}`, 'var(--correct-green)');
+        shakeScreen('basic');
+        flashCorrectScreenFX();
+        
+        const matrixBElement = document.getElementById('matrixB');
+        const mRect = matrixBElement.getBoundingClientRect();
+        createShockwave(mRect.left + mRect.width/2, mRect.top + mRect.height/2, 'rgba(46, 213, 115, 0.7)');
+        createExplosion(mRect.left + mRect.width/2, mRect.top + mRect.height/2, 'var(--correct-green)');
+    }
+
+    function handleWrongAnswer() {
+        playSound(150, 'square', 0.4, 0.6); 
+        gameState.combo = 0;
+        showFloatingText('오답', 'var(--wrong-red)');
+        shakeScreen('strong'); 
+        flashWrongScreenFX();
+    }
+
+    function applyDetBFeedback() {
+        const prob = gameState.currentProblem;
+        const detBVal = document.getElementById('detBVal');
+        detBVal.innerText = prob.correctAnswer;
+        detBVal.style.color = 'var(--combo-gold)';
+    }
+
+    // --- 해설 화면(Explanation Box) 로직 ---
+    function showExplanation(isCorrect, isTimeout, userVal = null) {
+        const modal = document.getElementById('explanationOverlay');
+        const title = document.getElementById('expTitle');
+        const body = document.getElementById('expBody');
+
+        if (isCorrect) {
+            title.innerText = "정답입니다! 🎉";
+            title.style.color = "var(--correct-green)";
+        } else if (isTimeout) {
+            title.innerText = "시간 초과! ⏰";
+            title.style.color = "var(--wrong-red)";
+        } else {
+            title.innerText = "오답입니다! 💥";
+            title.style.color = "var(--wrong-red)";
+        }
+
+        let addedHTML = gameState.currentProblem.explanationHTML;
+        
+        // 오답 제출 시 제출한 답안 표시
+        if (!isCorrect && !isTimeout && userVal !== null) {
+            addedHTML += `<div style="margin-top:15px; font-size:1.1rem; color:var(--wrong-red);">내가 입력한 답: ${userVal}</div>`;
+        }
+
+        body.innerHTML = addedHTML;
+        modal.style.display = 'flex';
+        document.getElementById('nextBtn').focus();
+    }
+
+    function closeExplanationAndNext() {
+        document.getElementById('explanationOverlay').style.display = 'none';
+        nextProblem();
+    }
+
+    function endGame() {
+        clearInterval(gameState.timerInterval);
+        playSound(440, 'triangle', 0.8, 0.5);
+        document.getElementById('endOverlay').style.display = 'flex';
+        document.getElementById('finalScore').innerText = gameState.score.toLocaleString();
+    }
+
+    // --- Visual FX ---
+    function flashCorrectScreenFX() {
+        const fx = document.getElementById('fxCorrect');
+        fx.classList.add('hit'); setTimeout(() => fx.classList.remove('hit'), 200);
+    }
+    function flashWrongScreenFX() {
+        const fx = document.getElementById('fxWrong');
+        fx.classList.add('hit'); setTimeout(() => fx.classList.remove('hit'), 250);
+    }
+    function shakeScreen(intensity = 'basic') {
+        const window = document.getElementById('gameWindow');
+        window.classList.remove('correct-anim', 'wrong-anim');
+        void window.offsetWidth; 
+        const cls = intensity === 'basic' ? 'correct-anim' : 'wrong-anim';
+        window.classList.add(cls);
+    }
+    function showFloatingText(text, color) {
+        const container = document.getElementById('comboContainer');
+        const txt = document.createElement('div');
+        txt.className = 'floating-text';
+        txt.innerText = text;
+        txt.style.color = color;
+        txt.style.textShadow = `0 0 10px ${color}`;
+        container.appendChild(txt);
+        setTimeout(() => { txt.style.transform = 'translateY(-60px)'; txt.style.opacity = '0'; }, 10);
+        setTimeout(() => txt.remove(), 1200);
+    }
+
+    // --- 키보드 이벤트 (Enter 연동) ---
+    window.addEventListener('keydown', (e) => {
+        const startOverlay = document.getElementById('startOverlay');
+        const endOverlay = document.getElementById('endOverlay');
+        const expOverlay = document.getElementById('explanationOverlay');
+        
+        // 게임 진행 중일 때 (모달창이 안 떠있을 때)
+        if (startOverlay.style.display !== 'flex' && endOverlay.style.display !== 'flex') {
+            // 설명창이 떠 있다면 다음 문제로 넘어감
+            if (expOverlay.style.display === 'flex') {
+                if(e.key === 'Enter') {
+                    e.preventDefault(); // 기본 폼 제출 방지
+                    closeExplanationAndNext();
+                }
+            } 
+            // 설명창이 없다면 정답 입력 동작
+            else {
+                if(e.key === 'Enter') {
+                    submitAnswer();
+                }
+            }
+        }
+    });
+
+</script>
+</body>
+</html>
